@@ -5,6 +5,10 @@ package WebApplication;
 use strict;
 use warnings;
 
+use Carp qw(cluck);
+
+use Data::Dumper;
+
 use FreezeThaw qw( freeze thaw );
 
 use CGI;
@@ -1527,6 +1531,7 @@ sub run {
     if ($@) {
       my $possible_error = $@;
       my $last_error = $!;
+      print STDERR "Error on first load of $package: $possible_error\n";
       $package = 'WebPage::'.$page;
       eval "require $package";
       if ($@) {
@@ -1559,6 +1564,7 @@ sub run {
     }
 
     # initialize the page
+    # print STDERR Dumper($self->page);
     $self->page->init;
 
     # write to session
