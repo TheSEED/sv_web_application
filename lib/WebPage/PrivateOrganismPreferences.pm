@@ -154,7 +154,7 @@ sub request_similarities {
   my $cgi = $application->cgi;
 
   # check for the requests
-  my @sim_requests = $cgi->param('sim_requests');
+  my @sim_requests = $cgi->multi_param('sim_requests');
 
   # check if there is anything to do
   unless (scalar(@sim_requests)) {
@@ -169,7 +169,9 @@ sub request_similarities {
     $jobs->{$job2} = 1;
   }
   my $joblist = join(" ", keys(%$jobs));
-  my $command = $FIG_Config::bin."/rp_request_peer_sims $joblist";
+
+  my $login = $self->application->session->user->login;
+  my $command = $FIG_Config::bin."/rp_request_peer_sims $login $joblist";
 
   if (open(P, "$command 2>&1 |"))
   {
@@ -230,9 +232,10 @@ sub set_peers {
   # print L Dumper(prefs => \%peer_prefs_hash);
 
   # get the new preferences from cgi
-  my @new_peers = $cgi->param('peers');
+  my @new_peers = $cgi->multi_param('peers');
 
   # print L Dumper(new => \@new_peers);
+  print STDERR Dumper(new => \@new_peers);
 
   # get the available RAST organisms
   my $rast = $application->data_handle('RAST');
@@ -320,7 +323,7 @@ sub check_requirements {
   my $content = "";
 
   # get the peers list
-  my @peers = $cgi->param('peers');
+  my @peers = $cgi->multi_param('peers');
   
   # get the available RAST organisms
   my $rast = $application->data_handle('RAST');
@@ -345,7 +348,8 @@ sub check_requirements {
       my $cgid = $jobs_hash->{$jid}->genome_id;
       my $sim_dir = $job->org_dir."/sims";
       if (opendir(DIR, $sim_dir)) {
-	closedir(DIR);
+	  closedir(DIR);
+	  print STDERR "Checking simdir=$sim_dir cgid=$cgid\n";
 	if ( -f $sim_dir."/".$cgid.".queued" ) {
 	  $sim_status->{$job->genome_id}->{$cgid} = "queued";
 	} elsif ( -f $sim_dir."/".$cgid.".in_progress" ) {
