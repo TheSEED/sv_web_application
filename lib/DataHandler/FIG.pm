@@ -126,7 +126,7 @@ sub handle {
     my @fig_m_dirs;
     my @ids = ();
     if ($cgi->param('organism')) {
-      @ids = $cgi->param('organism');
+      @ids = $cgi->multi_param('organism');
     } elsif ($id) {
       push(@ids, $id);
     }
