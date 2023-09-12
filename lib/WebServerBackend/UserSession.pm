@@ -218,10 +218,19 @@ sub add_entry {
   # set the timestamp
   $attributes->{timestamp} = $self->_timestamp();
 
+
+#
+# We were overrunning the parameter size in the database
+#
+delete $parameters->{upload_check};
+my $f = freeze($parameters);
+#print STDERR Dumper(length($f), $parameters);
   # set the new params
   $attributes->{current_page} = $page;
   $attributes->{current_parameters} = freeze($parameters);
 
+use Data::Dumper;
+print STDERR Dumper($parameters);
   $self->set_attributes($attributes);
   
   return $self;
