@@ -7,6 +7,7 @@ package WebComponent;
 use strict;
 use warnings;
 use FIG_Config;
+use Scalar::Util qw(weaken);
 
 =pod
 
@@ -60,6 +61,9 @@ sub new {
                  '_orderedCSS' => [],
                  '_orderedJS' => [],
 	       };
+
+    weaken($self->{application});
+
     bless $self, $class;
 
     return $self;
