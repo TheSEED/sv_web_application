@@ -183,7 +183,7 @@ sub handle {
       # print STDERR "FIGM: " . Dumper(\@fig_m_dirs);
       if (scalar(@fig_m_dirs)) {
 	# create the FIGM
-	$self->{_figm} = FIGM->new(undef, @fig_m_dirs);
+	$self->{_figm} = FIGM->new($self->{_fig}, @fig_m_dirs);
 	
 	return $self->{_figm}
       }
