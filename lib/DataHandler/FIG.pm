@@ -6,6 +6,7 @@ package DataHandler::FIG;
 
 use strict;
 use warnings;
+no warnings 'uninitialized';
 
 use base qw( DataHandler );
 
