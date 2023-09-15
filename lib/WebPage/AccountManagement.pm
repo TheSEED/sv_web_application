@@ -250,6 +250,7 @@ x.style.display = 'none';
       $html .= "<h2>Impersonate User</h2>";
       $html .= $self->start_form('impersonate_user_form', { action => 'impersonate_user' } );
       $html .= "<p>Select user to impersonate.</p>";
+      $html .= "<input type='text' name='login'><p>";
       my $user_select = "<select name='login'><option></option>";
       my $users_to_impersonate = $master->User->get_objects();
       foreach $user (sort { (lc($a->lastname()) cmp lc($b->lastname())) ||
@@ -263,7 +264,11 @@ x.style.display = 'none';
 	      . "</option>";
       }
       $user_select .= "</select> <input type='submit' value='switch user'>";
-      $html .= $user_select . $self->end_form();
+      #$html .= $user_select;
+      # Use a plain text box
+      $html .=  "<input type='submit' value='switch user'>";
+
+      $html .= $self->end_form();
       $html .= "<br/>";
   }
 
