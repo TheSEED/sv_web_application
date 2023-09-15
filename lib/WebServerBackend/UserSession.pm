@@ -230,7 +230,7 @@ my $f = freeze($parameters);
   $attributes->{current_parameters} = freeze($parameters);
 
 use Data::Dumper;
-print STDERR Dumper($parameters);
+#print STDERR Dumper($parameters);
   $self->set_attributes($attributes);
   
   return $self;

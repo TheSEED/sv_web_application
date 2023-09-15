@@ -1531,7 +1531,7 @@ sub run {
     if ($@) {
       my $possible_error = $@;
       my $last_error = $!;
-      print STDERR "Error on first load of $package: $possible_error\n";
+      #print STDERR "Error on first load of $package: $possible_error\n";
       $package = 'WebPage::'.$page;
       eval "require $package";
       if ($@) {

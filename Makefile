@@ -5,7 +5,7 @@ DEPLOY_RUNTIME ?= /kb/runtime
 TARGET ?= /kb/deployment
 
 SRC_CGI_PERL = $(wildcard cgi-scripts/*.pl)
-BIN_CGI_PERL = $(addprefix $(CGI_BIN_DIR)/,$(basename $(notdir $(SRC_CGI_PERL))))
+BIN_CGI_PERL = $(addprefix $(CGI_BIN_DIR)/,$(basename $(notdir $(SRC_CGI_PERL)))) $(CGI_BIN_DIR)/download.cgi
 
 SRC_PERL = $(wildcard scripts/*.pl)
 BIN_PERL = $(addprefix $(BIN_DIR)/,$(basename $(notdir $(SRC_PERL))))
@@ -42,6 +42,7 @@ cp-html:
 cp-templates:
 	mkdir -p $(TOP_DIR)/lib/templates
 	rsync -arv templates/* $(TOP_DIR)/lib/templates
+
 
 deploy: deploy-all
 deploy-all: deploy-client 
@@ -133,6 +134,9 @@ $(BIN_DIR)/%: service-scripts/%.pl $(TOP_DIR)/user-env.sh
 	$(WRAP_PERL_SCRIPT) '$$KB_TOP/modules/$(CURRENT_DIR)/$<' $@
 
 $(CGI_BIN_DIR)/%: cgi-scripts/%.pl $(TOP_DIR)/user-env.sh
+	$(WRAP_PERL_SCRIPT) '$$KB_TOP/modules/$(CURRENT_DIR)/$<' $@
+
+$(CGI_BIN_DIR)/%.cgi: cgi-scripts/%.pl $(TOP_DIR)/user-env.sh
 	$(WRAP_PERL_SCRIPT) '$$KB_TOP/modules/$(CURRENT_DIR)/$<' $@
 
 $(BIN_DIR)/%: service-scripts/%.py $(TOP_DIR)/user-env.sh

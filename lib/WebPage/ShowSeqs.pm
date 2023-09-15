@@ -70,9 +70,9 @@ sub output {
   my $fastaseq = '';
   my $error = '';
 
-  my @figids = $cgi->param( 'cds_checkbox' );
+  my @figids = $cgi->multi_param( 'cds_checkbox' );
   unless ( scalar( @figids ) ) {
-    @figids = $cgi->param('feature');
+    @figids = $cgi->multi_param('feature');
   }
 
    if ( $cgi->param('Align') )
