@@ -241,6 +241,11 @@ sub new {
   return $self;
 }
   
+  sub DESTROY
+  {
+      my($self) = @_;
+      print STDERR "DESTROY webapp $self\n";
+  }
 
 
 #******************************************************************************

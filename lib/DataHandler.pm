@@ -6,7 +6,7 @@ package DataHandler;
 
 use strict;
 use warnings;
-
+use Scalar::Util qw(weaken);
 
 =pod
 
@@ -43,7 +43,8 @@ sub new {
     }
     
     my $self = { 'application' => $application, 
-	       };
+		 };
+    weaken $self->{application};
     bless $self, $class;
 
     return $self;

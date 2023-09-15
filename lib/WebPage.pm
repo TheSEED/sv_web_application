@@ -2,6 +2,7 @@ package WebPage;
 
 use strict;
 use warnings;
+use Scalar::Util qw(weaken);
 
 1;
 
@@ -41,6 +42,7 @@ sub new {
            _orderedJS  => [],
 	     };
 
+  weaken($self->{application});
   bless($self, $class);
 
   return $self;
