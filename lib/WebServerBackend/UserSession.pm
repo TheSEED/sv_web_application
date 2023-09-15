@@ -229,8 +229,6 @@ my $f = freeze($parameters);
   $attributes->{current_page} = $page;
   $attributes->{current_parameters} = freeze($parameters);
 
-use Data::Dumper;
-print STDERR Dumper($parameters);
   $self->set_attributes($attributes);
   
   return $self;
