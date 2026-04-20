@@ -39,7 +39,7 @@ Returns a blessed layout object initialized using the specified template strings
 sub new {
   my ($class, $tmpl_path) = @_;
   my ($body, $frame);
-  my $tmpl  = $tmpl_path || TMPL_PATH.'WebLayoutDefault.tmpl';
+  my $tmpl  = $tmpl_path // (TMPL_PATH . 'WebLayoutDefault.tmpl');
   if (ref $tmpl eq 'HASH') {
     my $bodyString = $tmpl->{body};
     my $frameString = $tmpl->{frame};
