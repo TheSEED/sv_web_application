@@ -99,10 +99,11 @@ else
 	
 	print CGI::header();
 	print CGI::start_html();
-	
-	# print out the error
-	print '<pre>'.$error.'</pre>';
-	
+
+	# Log the full error for debugging but don't expose to user
+	warn "ERROR: $error";
+	print '<pre>An internal error occurred. Please try again later.</pre>';
+
 	print CGI::end_html();
     }
 }
@@ -169,7 +170,7 @@ sub main
 					  "color: #fff;",
 					  "background: #ff5555;",
 					  "border: 2px solid #ee2222;") },
-			   "Failure in component: $ajaxError");
+			   "Failure in component: An internal error occurred. Please try again later.");
     }
     Tracer::TraceImages($result);
     Trace("Printing result.") if T(3);
