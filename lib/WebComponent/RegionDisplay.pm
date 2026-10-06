@@ -12,6 +12,7 @@ use FIG_Config;
 use Tracer;
 use BasicLocation;
 use SeedViewer::SeedViewer;
+use URI::Escape;
 
 use Time::HiRes qw( usleep gettimeofday tv_interval );
 
@@ -739,13 +740,21 @@ sub pinned_regions_image {
 	      $color = -2;
 	    }
 
-	    my $href;
-	    if ( $seed_user ) {
+	    my($href, $target);
+	    if ( my $cdd_url = $self->cdd_feature_url($feature) ) {
+		$href = $cdd_url;
+		$target = '_blank';
+	    } elsif ( $seed_user ) {
 		$href = $self->application->url."?page=Annotation&feature=$fid&user=$seed_user";
 	    } else {
 		$href = $self->application->url."?page=Annotation&feature=$fid";
 	    }
-	    
+
+	    # A domain's synthesised id is noise in the tooltip; its accession
+	    # is the thing worth reading, and is what the link points at.
+	    my $id_title = $feature->{'cdd_accession'} ? 'Domain' : 'ID';
+	    my $id_value = $feature->{'cdd_accession'} || $fid;
+
 	    push(@$line_features, { 'fc_score' => $feature->{'fc_score'},
 		                    'start'    => $beg1b,
 				    'end'      => $end1b,
@@ -754,7 +763,8 @@ sub pinned_regions_image {
 				    'zlayer'   => 2,
 				    'label'    => $set,
 				    'href'     => $href,
-				    'description' => [ { title => 'ID', value => $fid },
+				    'target'   => $target,
+				    'description' => [ { title => $id_title, value => $id_value },
 						       { title => 'Function', value => $func || "" },
 						       { title => 'Contig', value => $contig },
 						       { title => 'Start', value => $beg1 },
@@ -897,13 +907,22 @@ sub pinned_regions_table {
 	    my $fid_num = $1;
 	    
 	    my $fid_link;
-	    if ( $seed_user ) {
+	    if ( my $cdd_url = $self->cdd_feature_url($feature) ) {
+		# Label the link with the accession rather than the
+		# synthesised feature id, which is unreadable and means
+		# nothing outside this page.
+		my $acc = $feature->{'cdd_accession'};
+		$fid_link = qq(<a href="$cdd_url" target="_blank">$acc</a>);
+	    } elsif ( $seed_user ) {
 		$fid_link = qq(<a href="$urlBase?page=Annotation&feature=$fid&user=$seed_user">$fid</a>);
 	    } else {
  		$fid_link = qq(<a href="$urlBase?page=Annotation&feature=$fid">$fid</a>);
 	    }
 
-	    my $cl_link = qq(<input type="button" class="button" onclick="window.top.location=').$self->svURL.qq(?page=HomologClusters&feature=$fid'" value='cluster'>);
+	    # No homolog clusters for a synthesised domain feature -- the page
+	    # cannot resolve its id, so the button would only ever 404.
+	    my $cl_link = $self->cdd_feature_url($feature) ? '' :
+		qq(<input type="button" class="button" onclick="window.top.location=').$self->svURL.qq(?page=HomologClusters&feature=$fid'" value='cluster'>);
 
 	    # Create an entry for the subsystem cell in the table
 	    my $ss_cell = '';
@@ -1740,4 +1759,33 @@ sub show_cdd {
   }
 
   return $self->{show_cdd};
+}
+
+=head3 cdd_feature_url
+
+    my $url = $self->cdd_feature_url($feature);
+
+For a conserved-domain feature, the URL of that domain's entry in CDD.
+Returns undef for anything else, so callers can use it to choose between
+this and the usual annotation link.
+
+CDD features are synthesised by ConservedDomainSearch and have ids of the
+form C<< <accession>-<fid>-<n>.r<region> >>, which the Annotation page
+cannot resolve -- pointing them at it gives a dead link. cddsrv.cgi accepts
+the bare accession as its uid for every model family we emit (cd, pfam,
+smart, COG, KOG, TIGR, PRK, PLN, CHL and the rest), so no id mapping is
+needed.
+
+=cut
+
+sub cdd_feature_url {
+  my ($self, $feature) = @_;
+
+  my $type = $feature->{'type'} || '';
+  return undef unless $type =~ /^(domain_hit|site_annotation|structural_motif)$/;
+
+  my $acc = $feature->{'cdd_accession'};
+  return undef unless defined($acc) && $acc ne '';
+
+  return "https://www.ncbi.nlm.nih.gov/Structure/cdd/cddsrv.cgi?uid=" . uri_escape($acc);
 }
