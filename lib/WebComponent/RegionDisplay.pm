@@ -12,6 +12,7 @@ use FIG_Config;
 use Tracer;
 use BasicLocation;
 use SeedViewer::SeedViewer;
+use URI::Escape;
 
 use Time::HiRes qw( usleep gettimeofday tv_interval );
 
@@ -76,6 +77,7 @@ sub new {
     $self->{tabular_output}         = 1;
     $self->{line_select}            = 0;
     $self->{show_genome_select}     = 0;
+    $self->{show_cdd}               = 0;
 
     $self->{window_size}            = 1000;
     $self->{control_form}           = 'regular';
@@ -287,7 +289,30 @@ sub output {
 
     my $color_by_function = $cgi->param('color_by_function');
     my $peg_functions = $self->{peg_functions};
-    my $maps = &PinnedRegions::pinned_regions($fig, $pin_desc, $fast_color, $sims_from, $region_size, $add_features, $is_annotator, $color_by_function, $peg_functions);
+
+    #
+    # An unchecked checkbox submits nothing at all, so the usual
+    # "defined($cgi->param(x)) ? ... : $self->x()" idiom would make this box
+    # impossible to turn off once set. The form carries a hidden cdd_control
+    # marker alongside it: when that is present, an absent show_cdd means the
+    # user unchecked it rather than that the form never offered it.
+    #
+    my $show_cdd;
+    if (defined($cgi->param('show_cdd')))
+    {
+	$show_cdd = $cgi->param('show_cdd') ? 1 : 0;
+    }
+    elsif ($cgi->param('cdd_control'))
+    {
+	$show_cdd = 0;
+    }
+    else
+    {
+	$show_cdd = $self->show_cdd();
+    }
+    $self->show_cdd($show_cdd);
+
+    my $maps = &PinnedRegions::pinned_regions($fig, $pin_desc, $fast_color, $sims_from, $region_size, $add_features, $is_annotator, $color_by_function, $peg_functions, ($show_cdd ? 1 : undef));
 
     if (0 && open(O, ">", "/homes/olson/tmp/pin.out" ) )
     {
@@ -300,6 +325,25 @@ sub output {
     my $form = $self->pinned_regions_form(\@pegs, $seed_user, $step_peg);
     if ($self->control_form eq 'none') {
       $form = "";
+    }
+
+    #
+    # Only the NCBI backend can leave work outstanding; a local rpsblast run
+    # has always finished by the time we get here. Say so rather than drawing
+    # an empty track, and re-fire the ajax call so the view completes on its
+    # own. The retry has to hang off an image's onload: Ajax.js assigns the
+    # response to innerHTML, and a <script> inserted that way never executes
+    # while an <img> still fires its handler.
+    #
+    if ($pin_desc->{cdd_pending}) {
+	my $n = $pin_desc->{cdd_pending};
+	my $what = $n == 1 ? "1 protein" : "$n proteins";
+	$form .=
+	    "<div id='cdd_notice' style='margin: 4px 0; padding: 4px; background: #ffd; border: 1px solid #cc9;'>" .
+	    "Conserved domains for $what are still being computed; this view will refresh when they are ready." .
+	    "<img src='$FIG_Config::cgi_url/Html/clear.gif' " .
+	    "onload='setTimeout(function(){execute_ajax(\"compared_region\", \"cr\", \"pr_form\");}, 15000);'>" .
+	    "</div>";
     }
 
     if ( $graphical_output && $tabular_output )
@@ -519,7 +563,20 @@ sub pinned_regions_form {
  	     "<input type='radio' name='fast_color' value='0' $check2> Slower (but exact) " .
  	     "<input type='radio' name='fast_color' value='2' $check3> By PLFAM " .
  	     "<input type='radio' name='fast_color' value='3' $check4> By PGFAM " .
-	     "</td></tr></table>";
+	     "</td></tr>";
+
+    #
+    # The hidden cdd_control marker is what lets an unchecked box be
+    # distinguished from a form that never carried the option -- see the
+    # show_cdd handling in output().
+    #
+    $check1 = $self->show_cdd() ? 'checked' : '';
+    $form .= "<tr><th>Conserved domains</th><td>" .
+	     "<input type='hidden' name='cdd_control' value='1'>" .
+	     "<input type='checkbox' name='show_cdd' value='1' $check1> " .
+	     "Show a CDD track under each region</td></tr>";
+
+    $form .= "</table>";
     $form .= $application->page->end_form();
     
     # create a button for the chromosomal clusters page if this is an annotator
@@ -683,13 +740,21 @@ sub pinned_regions_image {
 	      $color = -2;
 	    }
 
-	    my $href;
-	    if ( $seed_user ) {
+	    my($href, $target);
+	    if ( my $cdd_url = $self->cdd_feature_url($feature) ) {
+		$href = $cdd_url;
+		$target = '_blank';
+	    } elsif ( $seed_user ) {
 		$href = $self->application->url."?page=Annotation&feature=$fid&user=$seed_user";
 	    } else {
 		$href = $self->application->url."?page=Annotation&feature=$fid";
 	    }
-	    
+
+	    # A domain's synthesised id is noise in the tooltip; its accession
+	    # is the thing worth reading, and is what the link points at.
+	    my $id_title = $feature->{'cdd_accession'} ? 'Domain' : 'ID';
+	    my $id_value = $feature->{'cdd_accession'} || $fid;
+
 	    push(@$line_features, { 'fc_score' => $feature->{'fc_score'},
 		                    'start'    => $beg1b,
 				    'end'      => $end1b,
@@ -698,7 +763,8 @@ sub pinned_regions_image {
 				    'zlayer'   => 2,
 				    'label'    => $set,
 				    'href'     => $href,
-				    'description' => [ { title => 'ID', value => $fid },
+				    'target'   => $target,
+				    'description' => [ { title => $id_title, value => $id_value },
 						       { title => 'Function', value => $func || "" },
 						       { title => 'Contig', value => $contig },
 						       { title => 'Start', value => $beg1 },
@@ -841,13 +907,22 @@ sub pinned_regions_table {
 	    my $fid_num = $1;
 	    
 	    my $fid_link;
-	    if ( $seed_user ) {
+	    if ( my $cdd_url = $self->cdd_feature_url($feature) ) {
+		# Label the link with the accession rather than the
+		# synthesised feature id, which is unreadable and means
+		# nothing outside this page.
+		my $acc = $feature->{'cdd_accession'};
+		$fid_link = qq(<a href="$cdd_url" target="_blank">$acc</a>);
+	    } elsif ( $seed_user ) {
 		$fid_link = qq(<a href="$urlBase?page=Annotation&feature=$fid&user=$seed_user">$fid</a>);
 	    } else {
  		$fid_link = qq(<a href="$urlBase?page=Annotation&feature=$fid">$fid</a>);
 	    }
 
-	    my $cl_link = qq(<input type="button" class="button" onclick="window.top.location=').$self->svURL.qq(?page=HomologClusters&feature=$fid'" value='cluster'>);
+	    # No homolog clusters for a synthesised domain feature -- the page
+	    # cannot resolve its id, so the button would only ever 404.
+	    my $cl_link = $self->cdd_feature_url($feature) ? '' :
+		qq(<input type="button" class="button" onclick="window.top.location=').$self->svURL.qq(?page=HomologClusters&feature=$fid'" value='cluster'>);
 
 	    # Create an entry for the subsystem cell in the table
 	    my $ss_cell = '';
@@ -1674,4 +1749,43 @@ sub show_genome_select {
   }
 
   return $self->{show_genome_select};
+}
+
+sub show_cdd {
+  my ($self, $show) = @_;
+
+  if (defined($show)) {
+    $self->{show_cdd} = $show;
+  }
+
+  return $self->{show_cdd};
+}
+
+=head3 cdd_feature_url
+
+    my $url = $self->cdd_feature_url($feature);
+
+For a conserved-domain feature, the URL of that domain's entry in CDD.
+Returns undef for anything else, so callers can use it to choose between
+this and the usual annotation link.
+
+CDD features are synthesised by ConservedDomainSearch and have ids of the
+form C<< <accession>-<fid>-<n>.r<region> >>, which the Annotation page
+cannot resolve -- pointing them at it gives a dead link. cddsrv.cgi accepts
+the bare accession as its uid for every model family we emit (cd, pfam,
+smart, COG, KOG, TIGR, PRK, PLN, CHL and the rest), so no id mapping is
+needed.
+
+=cut
+
+sub cdd_feature_url {
+  my ($self, $feature) = @_;
+
+  my $type = $feature->{'type'} || '';
+  return undef unless $type =~ /^(domain_hit|site_annotation|structural_motif)$/;
+
+  my $acc = $feature->{'cdd_accession'};
+  return undef unless defined($acc) && $acc ne '';
+
+  return "https://www.ncbi.nlm.nih.gov/Structure/cdd/cddsrv.cgi?uid=" . uri_escape($acc);
 }

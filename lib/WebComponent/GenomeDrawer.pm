@@ -257,6 +257,9 @@ sub output {
       my $href = "";
       if ($item->{href}) {
 	$href = ' href="'.$item->{href}.'"';
+	# Lets a caller send an outbound link to a new tab instead of
+	# navigating the viewer away from the page.
+	$href .= ' target="'.$item->{target}.'"' if $item->{target};
       }
       
       my $x1 = int($x_offset + $i_start);
