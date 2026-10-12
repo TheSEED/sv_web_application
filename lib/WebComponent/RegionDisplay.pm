@@ -765,7 +765,7 @@ sub pinned_regions_image {
 				    'href'     => $href,
 				    'target'   => $target,
 				    'description' => [ { title => $id_title, value => $id_value },
-						       { title => 'Function', value => $func || "" },
+						       { title => 'Function', value => tooltip_text($func) },
 						       { title => 'Contig', value => $contig },
 						       { title => 'Start', value => $beg1 },
 						       { title => 'Stop', value => $end1 },
@@ -1759,6 +1759,31 @@ sub show_cdd {
   }
 
   return $self->{show_cdd};
+}
+
+=head3 tooltip_text
+
+    my $short = RegionDisplay::tooltip_text($text, $limit);
+
+Shorten a value destined for a hover tooltip, cutting back to a word boundary
+and appending an ellipsis. CDD descriptions reach 4000 characters (a tenth of
+them are over 1000), which even wrapped makes a tooltip taller than the
+window. The full text stays in the tabular view and on the CDD page the
+feature links to.
+
+=cut
+
+sub tooltip_text {
+  my ($text, $limit) = @_;
+
+  return '' unless defined($text);
+  $limit ||= 240;
+  return $text if length($text) <= $limit;
+
+  my $cut = substr($text, 0, $limit);
+  $cut =~ s/\s+\S*$//;          # do not end mid-word
+  $cut = substr($text, 0, $limit) if $cut eq '';   # one enormous token
+  return $cut . ' ...';
 }
 
 =head3 cdd_feature_url
