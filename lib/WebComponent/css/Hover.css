@@ -18,8 +18,15 @@ td.hm_td:hover {
 div.ht_div {
     border: 1px solid black;
     width: 150px;
+    /* Hover.js inline-sets "width: auto" on every tooltip that registers no
+       explicit width, which overrides the width above and lets one long
+       unbroken line make the box wider than the window. An inline width does
+       not override max-width, so this is what actually bounds it. */
+    max-width: 500px;
     background-color: #fff;
     font-family: arial;
     font-size: 10pt;
     padding: 2px;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 }
