@@ -27,6 +27,21 @@ div.ht_div {
     font-family: arial;
     font-size: 10pt;
     padding: 2px;
+    /* "anywhere", not "break-word". Both break a long token only when it would
+       otherwise overflow, but only "anywhere" also shrinks the min-content
+       width used for intrinsic sizing -- and the tooltip body is a <table>,
+       which never lays out narrower than its min-content. Subsystem names are
+       underscore-joined single tokens (697 of 2108 run to 40+ characters, the
+       longest 109), so under "break-word" the inner table stayed wider than the
+       cap above and simply overflowed this box. Hover.js then read clientWidth
+       as 500 and positioned the tooltip using a width it did not have. */
     word-wrap: break-word;
-    overflow-wrap: break-word;
+    overflow-wrap: anywhere;
+}
+
+/* The tooltip body is a table nested inside a table. An auto-layout table will
+   exceed its containing block rather than be clipped by it, so the cap on the
+   div above does not reach them on its own. */
+div.ht_div table {
+    max-width: 100%;
 }
