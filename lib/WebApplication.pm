@@ -8,6 +8,7 @@ use warnings;
 use Carp qw(cluck);
 
 use Data::Dumper;
+use Cwd qw(abs_path);
 
 use FreezeThaw qw( freeze thaw );
 
@@ -180,8 +181,24 @@ sub new {
       $self->add_message('info', 'You have been logged out.', 15);
     }
 
-    $self->{session} = $dbmaster->UserSession->create($cgi, $clear);
-    
+    #
+    # Only touch the session table when this request actually has a session.
+    #
+    # A client presenting a WebSession cookie gets the old behavior: the row is
+    # looked up, and minted if the cookie is stale, so anyone mid-session is
+    # unaffected. A client presenting no cookie -- which is every anonymous
+    # page view, and in particular every scraped one -- gets a transient
+    # stand-in: no INSERT, and no Set-Cookie on the response, which is what
+    # lets the deterministic pages be cached downstream. It promotes itself to
+    # a real row the moment a user is attached to it. See
+    # WebApplication::TransientSession at the foot of this file.
+    #
+    if ($cgi->cookie('WebSession') || $clear) {
+      $self->{session} = $dbmaster->UserSession->create($cgi, $clear);
+    } else {
+      $self->{session} = WebApplication::TransientSession->new($self, $cgi);
+    }
+
     # check if application is registered
     my $backend = $dbmaster->Backend->init({ 'name' => $backend_name });
     if (ref $backend and $backend->isa('WebServerBackend::Backend')) {
@@ -244,7 +261,7 @@ sub new {
   sub DESTROY
   {
       my($self) = @_;
-      print STDERR "DESTROY webapp $self $$\n";
+      #print STDERR "DESTROY webapp $self $$\n";
   }
 
 
@@ -1597,6 +1614,7 @@ sub run {
 	# if this is the default page and there is a message of the day
 	# file, add an info box with the content of the motd
 	my $motd_file = $self->backend->name.".motd";
+	#print STDERR Dumper($self->page->name, $self->default, abs_path($motd_file));
 	if (($self->page->name eq $self->default) && -f $motd_file) {
 	  if (open(FILE, $motd_file)) {
 	    my $msg = "";
@@ -1711,7 +1729,14 @@ sub run {
   } else {
     $self->{transmitted} = 1;
     Trace("Transmitting output page.") if T(3);
-    print $self->cgi->header( -cookie => $self->session->cookie );
+    #
+    # A transient session has no cookie. Passing -cookie => undef would emit a
+    # malformed Set-Cookie, and any Set-Cookie at all marks the response
+    # uncacheable downstream, which is the cost this is here to avoid.
+    #
+    my $session_cookie = $self->session->cookie;
+    print $session_cookie ? $self->cgi->header( -cookie => $session_cookie )
+                          : $self->cgi->header();
     my $output = $self->layout->output;
     print $output;
   }
@@ -1981,3 +2006,150 @@ sub js_init_functions {
 
   return $self->{js_init_functions};
 }
+
+
+package WebApplication::TransientSession;
+
+#
+# A session that was never written to the database.
+#
+# Every anonymous request used to mint a UserSession row and a Set-Cookie,
+# whether or not anything would ever read either back. For a client that does
+# not keep cookies -- a crawler, mostly -- the row is garbage the moment it is
+# written, and the Set-Cookie makes an otherwise byte-identical page
+# uncacheable at the edge. That is two costs for no benefit.
+#
+# This object stands in for that row on cookieless requests. It answers the
+# read side of the UserSession interface truthfully for "nobody is logged in",
+# and promotes itself to a real row the moment a user is attached, which is the
+# only point at which durability starts to matter.
+#
+# It deliberately does NOT subclass WebServerBackend::UserSession: that is a
+# PPO object whose methods assume a backing row, and inheriting them would turn
+# a missing row into an obscure failure deep in the ORM rather than a clear one
+# here.
+#
+
+use strict;
+use warnings;
+
+use CGI;
+use Digest::MD5;
+use Scalar::Util qw( weaken );
+
+sub new {
+    my ($class, $application, $cgi) = @_;
+
+    my $self = { application => $application,
+		 cgi         => $cgi,
+		 session_id  => undef };
+
+    #
+    # The application holds us, so hold it back weakly or neither is ever
+    # collected. Long-lived Starman workers notice that sort of thing.
+    #
+    weaken($self->{application});
+
+    return bless $self, $class;
+}
+
+=head3 session_id
+
+An identifier, minted on demand and never persisted.
+
+Callers use this to name scratch files (see the RAST upload pages), so it has
+to be unique and defined; returning undef there would produce collided
+temp-file names and a trail of uninitialized-value warnings. What it must not
+do is imply a database row exists.
+
+=cut
+
+sub session_id {
+    my ($self) = @_;
+
+    unless (defined $self->{session_id}) {
+	my $md5 = Digest::MD5->new;
+	$md5->add($self->{cgi} ? ($self->{cgi}->remote_host() || '') : '',
+		  $$, int(int(time) * rand(100)));
+	$self->{session_id} = $md5->hexdigest;
+    }
+
+    return $self->{session_id};
+}
+
+=head3 cookie
+
+Always undef. This is the method that keeps Set-Cookie off the response, and so
+the one that makes the page cacheable; see the header() call in
+WebApplication::run.
+
+=cut
+
+sub cookie { return undef }
+
+=head3 user
+
+Getter and setter, as on the real class.
+
+As a getter the answer is always undef: a logged-in user would have arrived
+with a cookie, and we would not be a transient session. As a setter it means a
+login is in progress, so a durable row is finally warranted -- promote, and let
+the real object take the assignment.
+
+=cut
+
+sub user {
+    my $self = shift;
+
+    return undef unless @_;
+
+    return $self->_promote->user(@_);
+}
+
+=head3 get_entry / entries / add_entry
+
+Page-history tracking. A client that does not keep a cookie has no history to
+read and no continuity for which to record one, so these are empty and the
+write is dropped rather than promoting a row nobody will revisit.
+
+=cut
+
+sub get_entry { return undef }
+sub entries   { return [] }
+sub add_entry { return $_[0] }
+
+=head3 is_expired / age
+
+A session that does not exist is not expired and has no age.
+
+=cut
+
+sub is_expired { return 0 }
+sub age        { return 0 }
+
+=head3 _promote
+
+Create the real row and put it in place of this object.
+
+Installing it on the application is the part that matters: callers reach the
+session as $application->session rather than holding it, so once this returns
+they transparently get the persisted object. perform_login depends on exactly
+that -- it assigns the user, then re-reads $self->application->session on the
+following line.
+
+=cut
+
+sub _promote {
+    my ($self) = @_;
+
+    my $application = $self->{application}
+	or die "TransientSession: application went away before promotion";
+
+    my $session = $application->dbmaster->UserSession->create($self->{cgi}, 0);
+
+    $application->{session} = $session;
+
+    return $session;
+}
+
+1;

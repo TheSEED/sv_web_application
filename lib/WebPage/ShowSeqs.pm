@@ -276,15 +276,15 @@ sub get_spreadsheet_buttons {
 
   my $flankingfield = "<INPUT TYPE=TEXT NAME=FLANKING SIZE=5 VALUE='".( $self->{ 'cgi' }->param( 'FLANKING' ) || '500' )."'>";
   my $checked_dnaseq = '';
-  if ( $self->{ 'cgi' }->param( 'Sequence' ) eq 'DNA Sequence' ) {
+  if ( ( $self->{ 'cgi' }->param( 'Sequence' ) // '' ) eq 'DNA Sequence' ) {
     $checked_dnaseq = 'CHECKED';
   }
   my $checked_dnaflank = '';
-  if ( $self->{ 'cgi' }->param( 'Sequence' ) eq 'DNA Sequence with flanking' ) {
+  if ( ( $self->{ 'cgi' }->param( 'Sequence' ) // '' ) eq 'DNA Sequence with flanking' ) {
     $checked_dnaflank = 'CHECKED';
   }
   my $checked_proteinseq = '';
-  if ( $self->{ 'cgi' }->param( 'Sequence' ) eq 'Protein Sequence' ) {
+  if ( ( $self->{ 'cgi' }->param( 'Sequence' ) // '' ) eq 'Protein Sequence' ) {
     $checked_proteinseq = 'CHECKED';
   }
   my $dnaseqradio = "<INPUT TYPE=\"RADIO\" NAME=\"Sequence\" VALUE=\"DNA Sequence\" ID=\"DNASEQ\" $checked_dnaseq >";

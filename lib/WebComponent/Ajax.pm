@@ -91,10 +91,35 @@ sub render {
   unless (ref($application)) {
     return "Could not initialize application";
   }
-  $application->url(scalar $cgi->param("url"));
+  # Security: the "url" parameter becomes $application->url, which is reflected
+  # unescaped into form actions and links across the app (CWE-79). Only accept a
+  # safe relative-URL form; otherwise leave the framework default in place.
+  my $req_url = scalar $cgi->param("url");
+  if (defined($req_url) && $req_url =~ /^[\w.\/-]+$/) {
+    $application->url($req_url);
+  }
   my $page_object = $page->new($application);
   $application->page($page_object);
   $page_object->init();
+
+  # Enforce the page's required_rights before dispatching any sub.
+  # The normal run() path calls check_rights(); the ajax route historically
+  # skipped it, allowing unauthenticated callers to reach privileged subs.
+  if ($page_object->can('required_rights')) {
+    my $rights = $page_object->required_rights();
+    if (@$rights) {
+      my $user = $application->session->user;
+      unless ($user) {
+        return "Permission denied.";
+      }
+      foreach my $right (@$rights) {
+        unless ($user->has_right($application, $right->[0], $right->[1], $right->[2], $right->[3])) {
+          return "Permission denied.";
+        }
+      }
+    }
+  }
+
   Trace("Calling page subroutine $sub_to_call.") if T(3);
   my $html = "";
   if ($cgi->param('component')) {

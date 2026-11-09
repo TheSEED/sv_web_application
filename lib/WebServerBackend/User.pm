@@ -642,7 +642,7 @@ will be returned by the method.
 
 sub generate_password {
   my ($self, $application) = @_;
-  my $new = join '', (0..9, 'A'..'Z', 'a'..'z')[rand 64, rand 64, rand 64, rand 64, rand 64, rand 64, rand 64, rand 64];
+  my $new = join '', map { (0..9, 'A'..'Z', 'a'..'z')[int(rand 62)] } 1..8;
   $self->set_password($new, $application);
   return $new;
 }

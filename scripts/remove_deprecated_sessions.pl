@@ -9,7 +9,10 @@ use Getopt::Long;
 
 
 sub usage {
-  print "remove_deprecated_sessions.pl >>> removes all deprecated sessions from the web application database\n";
+  print "remove_deprecated_sessions.pl >>> removes deprecated sessions from the web application database\n";
+  print "  Removes anonymous UserSession rows older than 2 days\n";
+  print "  Removes authenticated UserSession rows older than 30 days\n";
+  print "  Removes legacy Session/SessionItem rows older than 2 days\n";
   print "remove_deprecated_sessions.pl -execute 1 \n";
 }
 
@@ -33,18 +36,31 @@ if ($error) {
   exit 0;
 }
 
-print "Deleting sessions...\n";
-
-my $age = 172800; # two days in seconds
-
 my $dbh = $dbmaster->db_handle;
-my $time = time - ($age);
-my $statement = "DELETE FROM UserSession WHERE timestamp < FROM_UNIXTIME($time) AND user IS NULL";
+
+# Remove anonymous UserSession rows older than 2 days
+my $anon_cutoff = time - 172800;
+# Remove authenticated UserSession rows older than 30 days
+my $auth_cutoff = time - 2592000;
+# Remove all legacy Session/SessionItem rows older than 2 days (table no longer written to)
+my $legacy_cutoff = time - 172800;
+
 eval {
-  
-  $dbh->do($statement);
+
+  print "Deleting anonymous UserSession entries older than 2 days...\n";
+  $dbh->do("DELETE FROM UserSession WHERE timestamp < FROM_UNIXTIME($anon_cutoff) AND user IS NULL");
+
+  print "Deleting authenticated UserSession entries older than 30 days...\n";
+  $dbh->do("DELETE FROM UserSession WHERE timestamp < FROM_UNIXTIME($auth_cutoff) AND user IS NOT NULL");
+
+  print "Deleting legacy SessionItem entries...\n";
+  $dbh->do("DELETE FROM SessionItem WHERE session IN (SELECT _id FROM Session WHERE creation < FROM_UNIXTIME($legacy_cutoff))");
+
+  print "Deleting legacy Session entries...\n";
+  $dbh->do("DELETE FROM Session WHERE creation < FROM_UNIXTIME($legacy_cutoff)");
+
   $dbh->commit;
-  
+
 };
 
 if ($@) {

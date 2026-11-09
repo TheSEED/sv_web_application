@@ -266,7 +266,7 @@ sub set_peers {
   
   foreach my $pref_id (keys(%peer_prefs_hash)) {
       my $pjob = $genome_to_job{$pref_id};
-      unless ($new_peers_hash{$pjob}) {
+      unless ($pjob && $new_peers_hash{$pjob}) {
 	  # print L "DELETE pref_id=$pref_id jh=$jobs_hash->{$pjob} pjob=$pjob \n";
 	  my $pref = $peer_prefs_hash{$pref_id};
 	  $pref->delete;

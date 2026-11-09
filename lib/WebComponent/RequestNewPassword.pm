@@ -97,13 +97,13 @@ sub request_new_password {
     }
     else {
       $self->application->add_message('warning', 'You have no access to this web server. Please try to request a new password from a server you are allowed to use.');
-      warn "Attempt to reset password for account '$login' (email: $email). No login right." if ($self->log);
+      warn "Attempt to reset password for account '" . ($login // '') . "' (email: " . ($email // '') . "). No login right." if ($self->log);
       return 0;
     }
   }
   else {
     $self->application->add_message('warning', 'Mismatch between login name and email address.');
-    warn "Attempt to reset password for account '$login' (email: $email). Mismatch." if ($self->log);
+    warn "Attempt to reset password for account '" . ($login // '') . "' (email: " . ($email // '') . "). Mismatch." if ($self->log);
     return 0;
   }
 

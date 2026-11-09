@@ -111,7 +111,7 @@ sub perform_login {
 
   # try to initialize user
   my $user = $self->application->dbmaster->User->init( { login => $login } );
-  if (ref $user and crypt($password, $user->password) eq $user->password) {
+  if (ref $user and defined($user->password) and crypt($password, $user->password) eq $user->password) {
 
     if ($user->active and ($user->has_right($self->application, 'login') || $FIG_Config::open_gates)) {
 

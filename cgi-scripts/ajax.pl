@@ -80,7 +80,9 @@ if ($have_fcgi && $ENV{REQUEST_METHOD} eq '')
 	    {
 		warn "code died, cgi=$cgi returning error '$@'\n";
 		print $cgi->header(-status => '500 error in body of cgi processing');
-		print $@;
+		# Do not leak the raw error (may include DB credentials, stack
+		# traces, internal paths). Log it above; return a generic message.
+		print "An internal error occurred.";
 	    }
 	}
     endloop:
@@ -96,13 +98,16 @@ else
     {
 	my $error = $@;
 	Warn("Script error: $error") if T(SeedViewer => 0);
-	
+	# Always log the full error server-side for diagnosis.
+	warn "Ajax script error: $error\n";
+
 	print CGI::header();
 	print CGI::start_html();
-	
-	# print out the error
-	print '<pre>'.$error.'</pre>';
-	
+
+	# Do not leak the raw error (may include DB credentials, stack
+	# traces, internal paths) to the client; show a generic message.
+	print '<pre>An internal error occurred.</pre>';
+
 	print CGI::end_html();
     }
 }
@@ -162,6 +167,9 @@ sub main
     }
     if (defined $ajaxError) {
 	Warn("Error during Ajax: $ajaxError");
+	# Log full detail server-side; do not echo $ajaxError to the client
+	# (may include DB credentials, stack traces, internal paths).
+	warn "Error during Ajax: $ajaxError\n";
 	$result = CGI::div({style => join("\n", "margin: 20px 10px 20px 10px;",
 					  "padding-left: 10px;",
 					  "padding-right: 10px;",
@@ -169,7 +177,7 @@ sub main
 					  "color: #fff;",
 					  "background: #ff5555;",
 					  "border: 2px solid #ee2222;") },
-			   "Failure in component: $ajaxError");
+			   "Failure in component.");
     }
     Tracer::TraceImages($result);
     Trace("Printing result.") if T(3);

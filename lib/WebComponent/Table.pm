@@ -774,13 +774,13 @@ sub format_data {
   {
     my $rows = [];
     foreach my $row (@$highlights_array) {
-      push(@$rows, join('@^', @$row));
+      push(@$rows, join('@^', map { $_ // '' } @$row));
     }
     $highlights = join('@~', @$rows);
 
     $rows = [];
     foreach my $row (@$onclicks_array) {
-      push(@$rows, join('@^', @$row));
+      push(@$rows, join('@^', map { $_ // '' } @$row));
     }
     $onclicks = join('@~', @$rows);
   }

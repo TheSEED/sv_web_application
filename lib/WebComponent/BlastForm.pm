@@ -87,15 +87,15 @@ sub output {
       $f_off_checked = "";
     }
     $html .= "<tr><th>sequence</th><td><input type='radio' name='seq_type' value='nuc'$nuc_checked>nucleotide</td><td style='padding-right: 10px;'><input type='radio' name='seq_type' value='aa'$aa_checked>amino acid</td><th>filter</th><td><input type='radio' name='filter' value='F'$f_off_checked>off</td><td><input type='radio' name='filter' value='T'$f_on_checked>on</td></tr>\n";
-    $html .= "<tr><th>cutoff</th><td colspan=2><input type='text' name='evalue' value='$cutoff' size=5>&nbsp;<i>(e.g.: 1e-30)</i></td><th>word size</th><td colspan=2><input type='text' name='wsize' value='$word_size' size=5>&nbsp;<i>(0 for default)</i></td></tr>";
+    $html .= "<tr><th>cutoff</th><td colspan=2><input type='text' name='evalue' value='".CGI::escapeHTML($cutoff)."' size=5>&nbsp;<i>(e.g.: 1e-30)</i></td><th>word size</th><td colspan=2><input type='text' name='wsize' value='".CGI::escapeHTML($word_size)."' size=5>&nbsp;<i>(0 for default)</i></td></tr>";
     $html .= "</table>";
 
-    $html .= "<textarea style='width: 550px;height: 150px;' name='fasta'>".($cgi->param('fasta') || "")."</textarea><br/>\n";
+    $html .= "<textarea style='width: 550px;height: 150px;' name='fasta'>".CGI::escapeHTML($cgi->param('fasta') || "")."</textarea><br/>\n";
 
     # check if we have a predefined organism, in that case we don't need an 
     # organism select box
     if (defined($cgi->param('organism'))) {
-      $html .= "<input type='hidden' name='organism' value='" . $cgi->param('organism') . "'>";
+      $html .= "<input type='hidden' name='organism' value='" . CGI::escapeHTML($cgi->param('organism')) . "'>";
     } else {
 
       # create the organism select component

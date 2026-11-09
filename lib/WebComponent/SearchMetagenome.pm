@@ -113,45 +113,49 @@ sub output {
       @terms = ($searchword);
     }
     foreach my $term (@terms) {
-      my $how = " like '%$term%'";
+      # Security: $term comes from the mg_search CGI param and was interpolated
+      # straight into SQL (CWE-89). Use a ? placeholder + bind value instead.
+      my $how = " like ?";
+      my $how_bind = '%' . $term . '%';
       if ($cgi->param('mg_exact'.$self->id)) {
-	$how = "='$term'";
+	$how = "=?";
+	$how_bind = $term;
       }
-      
+
       # search job ids
       my $statement = "SELECT $fields from Job where id$how and viewable=1";
-      my $result = $dbh_job->selectall_arrayref($statement);
+      my $result = $dbh_job->selectall_arrayref($statement, undef, $how_bind);
       push(@$all_results, map { [ 'job', @$_, "", "" ] } @$result);
-      
+
       # search genome ids
       $statement = "SELECT $fields from Job where genome_id$how and viewable=1";
-      $result = $dbh_job->selectall_arrayref($statement);
+      $result = $dbh_job->selectall_arrayref($statement, undef, $how_bind);
       push(@$all_results, map { [ 'id', @$_, "", "" ] } @$result);
-      
+
       # search genome names
       $statement = "SELECT $fields from Job where lower(genome_name)$how and viewable=1";
-      $result = $dbh_job->selectall_arrayref($statement);
+      $result = $dbh_job->selectall_arrayref($statement, undef, $how_bind);
       push(@$all_results, map { [ 'metagenome', @$_, "", "" ] } @$result);
-      
+
       # search project names
       $statement = "SELECT $fields from Job where lower(project_name)$how and viewable=1";
-      $result = $dbh_job->selectall_arrayref($statement);
+      $result = $dbh_job->selectall_arrayref($statement, undef, $how_bind);
       push(@$all_results, map { [ 'project', @$_, "", "" ] } @$result);
-      
+
       # search metadata values
       $statement = "SELECT tag, $fields, tag, value from Job JOIN " . $self->meta_db . ".JobMD on Job._id=" . $self->meta_db . ".JobMD.job where lower(" . $self->meta_db . ".JobMD.value)$how";
-      $result = $dbh_job->selectall_arrayref($statement);
+      $result = $dbh_job->selectall_arrayref($statement, undef, $how_bind);
       push(@$all_results, map { [ @$_ ] } @$result);
-      
+
       # search metadata tags
       $statement = "SELECT tag, $fields, tag, value from Job JOIN " . $self->meta_db . ".JobMD on Job._id=" . $self->meta_db . ".JobMD.job where lower(" . $self->meta_db . ".JobMD.tag)$how";
-      $result = $dbh_job->selectall_arrayref($statement);
+      $result = $dbh_job->selectall_arrayref($statement, undef, $how_bind);
       push(@$all_results, map { [ @$_ ] } @$result);
 
 
       # search organisms / functions
-      $statement = "SELECT name , abundance , type , jobs  from data_summary  where name ~* '$term' ";
-      $result = $dbh_data->selectall_arrayref($statement);
+      $statement = "SELECT name , abundance , type , jobs  from data_summary  where name ~* ? ";
+      $result = $dbh_data->selectall_arrayref($statement, undef, $term);
       #my $fields = "id, genome_id, genome_name, project_name, size, public";
       print STDERR "Results :: " . scalar @$result;
       unless (scalar @$result){

@@ -115,6 +115,7 @@ sub output {
   {
     # figure out which kind of id we have
     my $id = $highlight->{id};
+    next unless defined($id);
     my $coordinates;
     if ($self->ec_coordinates && $self->ec_coordinates->{$id}) {
       $coordinates = $self->ec_coordinates->{$id}

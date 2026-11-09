@@ -78,6 +78,12 @@ sub output {
     $group = "";
   }
 
+  # Security: these values are reflected into form value='...' attributes below;
+  # HTML-encode them to prevent reflected XSS (CWE-79). $email is also compared
+  # raw in the invite branch, so it keeps a separate escaped copy ($email_safe).
+  $_ = CGI::escapeHTML($_) for ($firstname, $lastname, $login, $group);
+  my $email_safe = CGI::escapeHTML($email);
+
   # prepare the country codes
   my $country_codes = &country_codes();
   my $country_values;
@@ -109,7 +115,7 @@ sub output {
     $iform .= "<tr><td>First Name</td><td><input type='text' name='firstname' value='" . $firstname . "'></td></tr>";
     $iform .= "<tr><td>Last Name</td><td><input type='text' name='lastname' value='" . $lastname . "'></td></tr>";
     $iform .= "<tr><td>Login</td><td><input type='text' name='login' value='" . $login . "'></td></tr>";
-    $iform .= "<tr><td>eMail</td><td><input type='text' name='email' readonly='readonly' value='" . $email . "'></td></tr>";
+    $iform .= "<tr><td>eMail</td><td><input type='text' name='email' readonly='readonly' value='" . $email_safe . "'></td></tr>";
     $iform .= "<tr><td>Organization</td><td><input type='text' name='organization'></td></tr>";
     $iform .= "<tr><td>URL</td><td>http://<input type='text' name='lru'></td></tr>";
     $iform .= "<tr><td>Country</td><td>" . $cgi->popup_menu( -name => 'country', -values => $country_values, -labels => $country_codes, -default => 'US' ) . "</td></tr>";
@@ -153,7 +159,7 @@ sub output {
       $new_account .= "<tr><td>First Name<sup><span style='color: red;'>*</span></sup></td><td><input type='text' name='firstname' value='" . $firstname . "'></td></tr>";
       $new_account .= "<tr><td>Last Name<sup><span style='color: red;'>*</span></sup></td><td><input type='text' name='lastname' value='" . $lastname . "'></td></tr>";
       $new_account .= "<tr><td>Login<sup><span style='color: red;'>*</span></sup></td><td><input type='text' name='login' value='" . $login . "'></td></tr>";
-      $new_account .= "<tr><td>eMail<sup><span style='color: red;'>*</span></sup></td><td><input type='text' name='email' value='" . $email . "'></td></tr>";
+      $new_account .= "<tr><td>eMail<sup><span style='color: red;'>*</span></sup></td><td><input type='text' name='email' value='" . $email_safe . "'></td></tr>";
       $new_account .= "<tr><td>Organization</td><td><input type='text' name='organization'></td></tr>";
       $new_account .= "<tr><td>URL</td><td>http://<input type='text' name='lru'></td></tr>";
       $new_account .= "<tr><td>Country</td><td>" . $cgi->popup_menu( -name => 'country', -values => $country_values, -labels => $country_codes, -default => 'US' ) . "</td></tr>";
@@ -176,7 +182,7 @@ sub output {
       $existing_account .= "<p style='font-size:8pt; font-style: italic;'>Fields indicated with <span style='color:red;'>*</span> are mandatory.</p>";
       $existing_account .= "<table>";
       $existing_account .= "<tr><td>Login<sup><span style='color: red;'>*</span></sup></td><td><input type='text' name='login' value='" . $login . "'></td></tr>";
-      $existing_account .= "<tr><td>eMail<sup><span style='color: red;'>*</span></sup></td><td><input type='text' name='email' value='" . $email . "'></td></tr>";
+      $existing_account .= "<tr><td>eMail<sup><span style='color: red;'>*</span></sup></td><td><input type='text' name='email' value='" . $email_safe . "'></td></tr>";
       $existing_account .= "<tr><td>Group Name</td><td><input type='text' name='group' value='" . $group . "'><br><i>(only enter if assigned by a group administrator)</i></td></tr>";
       if ($self->application->backend->name eq 'MGRAST') {
 	$existing_account .= "<tr><td>Add me to the MG-RAST mailing-list</td><td><input type='checkbox' name='mailinglist' checked='checked'><br><i>$mlist_msg</i></td></tr>";

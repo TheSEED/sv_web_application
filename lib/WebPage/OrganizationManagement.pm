@@ -380,21 +380,42 @@ sub edit_organization {
 sub locate_url {
   my ($self) = @_;
 
-  my $url = $self->application->cgi->param('url');
-  $url =~ s/\/$//;
-  $url =~ s/^http\:\/\///;
-  my $ip = `nslookup $url | grep Add | grep -v '#' | cut -f 2 -d ' '`;
-  my @lines = split /\n/, $ip;
-  $ip = $lines[0];
+  my $application = $self->application();
 
+  # Explicit auth check: do not rely solely on the ajax dispatcher.
+  my $user = $application->session->user;
+  unless ($user && $user->has_right($application, 'edit', 'user', '*')) {
+    return "Permission denied.";
+  }
+
+  my $url = $application->cgi->param('url');
+  $url =~ s/\/$//;
+  $url =~ s/^https?:\/\///;
+
+  # Validate: only allow characters legal in a hostname before any lookup.
+  unless (defined($url) && $url =~ /^[A-Za-z0-9]([A-Za-z0-9._-]{0,251}[A-Za-z0-9])?$/) {
+    return "Invalid URL.";
+  }
+
+  # Resolve via Perl built-in instead of shelling out to nslookup with user input.
+  use Socket qw(inet_ntoa);
+  my $packed = gethostbyname($url);
+  unless ($packed) {
+    return "Could not resolve host.";
+  }
+  my $ip = inet_ntoa($packed);
+
+  use LWP::UserAgent;
   use HTTP::Request::Common;
-  my $ua = LWP::UserAgent->new;
+  my $ua = LWP::UserAgent->new(timeout => 10);
   my $retval = $ua->request(GET "http://www.netip.de/search?query=$ip");
+  unless ($retval && $retval->is_success) {
+    return "position: , ";
+  }
   my $content = $retval->content();
-  my ($lat) = $content =~ /var latitude = ([^;]+)/;
+  my ($lat)  = $content =~ /var latitude = ([^;]+)/;
   my ($long) = $content =~ /var longitude = ([^;]+)/;
-  my $latlong = "position: $lat, $long";
-  return $latlong;
+  return "position: $lat, $long";
 }
 
 sub required_rights {
